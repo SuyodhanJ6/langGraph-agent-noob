@@ -1,24 +1,15 @@
 from typing import List, Dict, Any, Optional
 import json
 import uuid
-from datetime import datetime
 from src.database.connection import DatabaseConnection
 from src.utils.logger import logger
-from dataclasses import dataclass
-
-@dataclass
-class ChatMessage:
-    role: str
-    content: str
-    name: Optional[str] = None
-    created_at: Optional[datetime] = None
-    metadata: Optional[Dict] = None
-    message_id: Optional[str] = None
-    turn_number: Optional[int] = None
+from src.models.chat import ChatMessage, ChatSession
+from src.database.repositories.user_repository import UserRepository
 
 class ChatRepository:
     def __init__(self):
         self.db = DatabaseConnection()
+        self.user_repo = UserRepository()
         self._ensure_tables()
     
     def _ensure_tables(self):
@@ -43,7 +34,7 @@ class ChatRepository:
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """)
 
-                # Create chat messages table
+                # Create messages table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS chat_messages (
                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -68,79 +59,10 @@ class ChatRepository:
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """)
                 
-                self.db.connection.commit()
-        except Exception as e:
-            logger.error(f"Error ensuring chat tables: {e}")
-            raise
-
-    def get_or_create_session(self, session_id: str, user_id: str) -> str:
-        try:
-            with self.db.get_cursor() as cursor:
-                # Check if session exists
-                cursor.execute("""
-                    SELECT session_id FROM chat_sessions 
-                    WHERE session_id = %s AND status = 'active'
-                """, (session_id,))
+                logger.info("Chat tables verified/created successfully")
                 
-                result = cursor.fetchone()
-                if not result:
-                    # Create new session
-                    cursor.execute("""
-                        INSERT INTO chat_sessions (session_id, user_id)
-                        VALUES (%s, %s)
-                    """, (session_id, user_id))
-                    self.db.connection.commit()
-                return session_id
         except Exception as e:
-            logger.error(f"Error managing session: {e}")
-            raise
-    
-    def save_message(
-        self, 
-        session_id: str, 
-        user_id: str, 
-        role: str, 
-        content: str, 
-        agent_name: str = None, 
-        metadata: dict = None,
-        parent_message_id: str = None
-    ) -> bool:
-        try:
-            with self.db.get_cursor() as cursor:
-                # Get next turn number
-                cursor.execute("""
-                    SELECT COALESCE(MAX(turn_number), 0) + 1
-                    FROM chat_messages
-                    WHERE session_id = %s
-                """, (session_id,))
-                turn_number = cursor.fetchone()[0]
-
-                # Generate unique message ID
-                message_id = str(uuid.uuid4())
-
-                # Insert message
-                cursor.execute("""
-                    INSERT INTO chat_messages (
-                        message_id, session_id, user_id, role, content,
-                        agent_name, turn_number, parent_message_id, metadata
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    message_id, session_id, user_id, role, content,
-                    agent_name, turn_number, parent_message_id,
-                    json.dumps(metadata) if metadata else None
-                ))
-
-                # Update session last_message_at
-                cursor.execute("""
-                    UPDATE chat_sessions 
-                    SET last_message_at = CURRENT_TIMESTAMP
-                    WHERE session_id = %s
-                """, (session_id,))
-
-                self.db.connection.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error saving message: {e}")
+            logger.error(f"Error ensuring chat tables: {str(e)}")
             raise
     
     def get_session_messages(self, session_id: str, limit: int = 10) -> List[ChatMessage]:
@@ -176,5 +98,118 @@ class ChatRepository:
                 return messages
                 
         except Exception as e:
-            logger.error(f"Error getting messages: {e}")
-            return [] 
+            logger.error(f"Error getting messages: {str(e)}")
+            return []
+    
+    def get_or_create_session(self, session_id: str, user_id: str) -> Dict[str, Any]:
+        """Get existing session or create a new one"""
+        try:
+            # First ensure user exists
+            self.user_repo.get_or_create_user(user_id)
+            
+            with self.db.get_cursor(dictionary=True) as cursor:
+                # Check if session exists
+                cursor.execute("""
+                    SELECT 
+                        session_id,
+                        user_id,
+                        status,
+                        created_at,
+                        updated_at,
+                        last_message_at,
+                        metadata
+                    FROM chat_sessions 
+                    WHERE session_id = %s AND status = 'active'
+                """, (session_id,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    # Create new session
+                    cursor.execute("""
+                        INSERT INTO chat_sessions 
+                        (session_id, user_id, status, metadata) 
+                        VALUES (%s, %s, 'active', NULL)
+                    """, (session_id, user_id))
+                    
+                    # Get the created session
+                    cursor.execute("""
+                        SELECT 
+                            session_id,
+                            user_id,
+                            status,
+                            created_at,
+                            updated_at,
+                            last_message_at,
+                            metadata
+                        FROM chat_sessions 
+                        WHERE session_id = %s
+                    """, (session_id,))
+                    result = cursor.fetchone()
+                
+                if not result:
+                    raise Exception(f"Failed to create or retrieve session {session_id}")
+                
+                return {
+                    'session_id': result['session_id'],
+                    'user_id': result['user_id'],
+                    'status': result['status'],
+                    'created_at': result['created_at'],
+                    'updated_at': result['updated_at'],
+                    'last_message_at': result['last_message_at'],
+                    'metadata': json.loads(result['metadata']) if result['metadata'] else None
+                }
+                
+        except Exception as e:
+            logger.error(f"Error managing session: {str(e)}")
+            raise
+
+    def save_message(
+        self, 
+        session_id: str, 
+        user_id: str, 
+        role: str, 
+        content: str, 
+        agent_name: str = None, 
+        metadata: dict = None,
+        parent_message_id: str = None
+    ) -> bool:
+        try:
+            # First ensure session exists
+            session = self.get_or_create_session(session_id, user_id)
+            
+            with self.db.get_cursor() as cursor:
+                # Get next turn number
+                cursor.execute("""
+                    SELECT COALESCE(MAX(turn_number), 0) + 1
+                    FROM chat_messages
+                    WHERE session_id = %s
+                """, (session_id,))
+                turn_number = cursor.fetchone()[0]
+
+                # Generate unique message ID
+                message_id = str(uuid.uuid4())
+
+                # Insert message
+                cursor.execute("""
+                    INSERT INTO chat_messages (
+                        message_id, session_id, user_id, role, content,
+                        agent_name, turn_number, parent_message_id, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    message_id, session_id, user_id, role, content,
+                    agent_name, turn_number, parent_message_id,
+                    json.dumps(metadata) if metadata else None
+                ))
+
+                # Update session last_message_at
+                cursor.execute("""
+                    UPDATE chat_sessions 
+                    SET last_message_at = CURRENT_TIMESTAMP
+                    WHERE session_id = %s
+                """, (session_id,))
+
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving message: {str(e)}")
+            raise 

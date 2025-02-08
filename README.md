@@ -134,8 +134,27 @@ uv sync --frozen
 ```
 
 ### Running Tests
+
+1. Install test dependencies:
+```bash
+uv pip install -e ".[test]"
+```
+
+2. Run all tests:
 ```bash
 pytest
+```
+
+3. Run specific test categories:
+```bash
+pytest tests/unit/  # Unit tests only
+pytest tests/integration/  # Integration tests only
+pytest tests/e2e/  # End-to-end tests only
+```
+
+4. Generate coverage report:
+```bash
+pytest --cov=src --cov-report=html
 ```
 
 ## 🐛 Troubleshooting

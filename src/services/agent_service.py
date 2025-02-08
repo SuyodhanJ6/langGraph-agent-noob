@@ -15,6 +15,7 @@ from src.components.agents.checker_agent import CheckerAgent
 from src.components.agents.reporter_agent import ReporterAgent
 from src.constants.routes import AgentRoutes
 from langchain_core.messages import HumanMessage, AIMessage
+from src.models.chat import ChatMessage
 
 class AgentService:
     def __init__(self):

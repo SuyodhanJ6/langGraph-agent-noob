@@ -1,28 +1,40 @@
 import logging
+import sys
+from logging.handlers import RotatingFileHandler
 import os
 from datetime import datetime
 
 # Create logs directory
-LOG_DIR = os.path.join(os.getcwd(), "logs")
+LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Create log file name with timestamp
-LOG_FILE = f"{datetime.now().strftime('%m%d%Y__%H%M%S')}.log"
-LOG_FILE_PATH = os.path.join(LOG_DIR, LOG_FILE)
+# Create a custom logger
+logger = logging.getLogger("FraudDetectionAPI")
+logger.setLevel(logging.INFO)
 
-# Configure logging
-logging.basicConfig(
-    filename=LOG_FILE_PATH,
-    format='[%(asctime)s] %(levelname)s %(lineno)d %(filename)s %(funcName)s() %(message)s',
-    level=logging.INFO
+# Create handlers
+console_handler = logging.StreamHandler(sys.stdout)
+file_handler = RotatingFileHandler(
+    filename=os.path.join(LOG_DIR, f"app_{datetime.now().strftime('%Y%m%d')}.log"),
+    maxBytes=10485760,  # 10MB
+    backupCount=5
 )
 
-# Create logger instance
-logger = logging.getLogger("FraudDetectionSystem")
+# Create formatters and add it to handlers
+log_format = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+)
+console_handler.setFormatter(log_format)
+file_handler.setFormatter(log_format)
 
-# Add console handler to show logs in console as well
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(levelname)s: %(message)s')
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler) 
+# Add handlers to the logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+# Prevent duplicate logs when using gunicorn
+if not logger.handlers:
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+def get_logger():
+    return logger 

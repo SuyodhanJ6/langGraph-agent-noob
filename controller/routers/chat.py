@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional
 from pydantic import BaseModel
 from src.services.agent_service import AgentService
@@ -6,8 +6,12 @@ from src.models.agents import AgentResponse
 from src.core.config import settings
 from src.utils.logger import logger
 import time
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from src.database.connection import DatabaseConnection
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
@@ -27,8 +31,10 @@ class ChatRequest(BaseModel):
 @router.post("/chat", response_model=AgentResponse, 
             summary="Process a chat message",
             description="Send a message to the fraud detection system")
+@limiter.limit(f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
 async def chat(
-    request: ChatRequest,
+    request: Request,  # Required for rate limiting
+    chat_request: ChatRequest,
     agent_service: AgentService = Depends(lambda: AgentService())
 ):
     """
@@ -45,11 +51,11 @@ async def chat(
     """
     try:
         # Generate default IDs if not provided
-        session_id = request.session_id or f"session_{int(time.time())}"
-        user_id = request.user_id or f"user_{int(time.time())}"
+        session_id = chat_request.session_id or f"session_{int(time.time())}"
+        user_id = chat_request.user_id or f"user_{int(time.time())}"
         
         response = await agent_service.process_message(
-            message=request.content,
+            message=chat_request.content,
             session_id=session_id,
             user_id=user_id
         )
@@ -70,4 +76,30 @@ async def health_check():
         "status": "healthy",
         "version": settings.PROJECT_VERSION,
         "model": settings.GROQ_MODEL
-    } 
+    }
+
+@router.get("/health/db", 
+           summary="Database health check",
+           description="Check database connectivity")
+async def db_health_check():
+    """Check database connection"""
+    try:
+        db = DatabaseConnection()
+        with db.get_cursor() as cursor:
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+            
+            # Also check if we can access our database
+            cursor.execute(f"USE {db.settings.DB_NAME}")
+            
+            return {
+                "status": "healthy",
+                "message": "Database connection successful",
+                "database": db.settings.DB_NAME
+            }
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=503,
+            detail=str(e)
+        ) 

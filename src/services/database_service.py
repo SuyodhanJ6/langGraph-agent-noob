@@ -7,25 +7,9 @@ from src.database.repositories.chat_repository import ChatRepository, ChatMessag
 
 class DatabaseService:
     def __init__(self):
-        self.fraud_repo = FraudReportRepository()
-        self.user_repo = UserRepository()
         self.chat_repo = ChatRepository()
-    
-    def check_number(self, phone_number: str) -> Optional[Dict[str, Any]]:
-        """Check if a phone number has fraud reports"""
-        try:
-            return self.fraud_repo.check_number(phone_number)
-        except Exception as e:
-            logger.error(f"Error checking number: {e}")
-            return None
-    
-    def report_fraud(self, phone_number: str, description: str, reporter_ip: str) -> bool:
-        """Report a fraudulent phone number"""
-        try:
-            return self.fraud_repo.report_fraud(phone_number, description, reporter_ip)
-        except Exception as e:
-            logger.error(f"Error reporting fraud: {e}")
-            return False
+        self.user_repo = UserRepository()
+        self.fraud_repo = FraudReportRepository()
     
     def save_message(
         self, 
@@ -36,15 +20,7 @@ class DatabaseService:
         name: str = None, 
         metadata: dict = None
     ) -> bool:
-        """Save a message to the conversation history"""
         try:
-            # Ensure user exists
-            self.user_repo.get_or_create_user(user_id)
-            
-            # Ensure session exists and get session ID
-            session_id = self.chat_repo.get_or_create_session(session_id, user_id)
-            
-            # Save message
             return self.chat_repo.save_message(
                 session_id=session_id,
                 user_id=user_id,
@@ -54,23 +30,48 @@ class DatabaseService:
                 metadata=metadata
             )
         except Exception as e:
-            logger.error(f"Error saving message: {e}")
-            return False
+            logger.error(f"Error saving message: {str(e)}")
+            raise
     
-    def get_session_messages(self, session_id: str) -> List[Dict[str, Any]]:
-        """Get all messages for a session ordered by timestamp"""
+    def get_session_messages(self, session_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get messages for a session"""
         try:
-            messages = self.chat_repo.get_session_messages(session_id)
+            messages = self.chat_repo.get_session_messages(session_id, limit)
             return [
                 {
                     'role': msg.role,
                     'content': msg.content,
                     'name': msg.name,
-                    'created_at': msg.created_at.isoformat() if msg.created_at else None,
-                    'metadata': msg.metadata
-                }
-                for msg in messages
+                    'created_at': msg.created_at,
+                    'metadata': msg.metadata,
+                    'message_id': msg.message_id,
+                    'turn_number': msg.turn_number
+                } for msg in messages
             ]
         except Exception as e:
-            logger.error(f"Error getting session messages: {e}")
-            return [] 
+            logger.error(f"Error getting session messages: {str(e)}")
+            return []
+    
+    def check_phone_number(self, phone_number: str) -> Optional[Dict[str, Any]]:
+        """Check if a phone number has been reported"""
+        try:
+            return self.fraud_repo.check_number(phone_number)
+        except Exception as e:
+            logger.error(f"Error checking phone number: {str(e)}")
+            return None
+    
+    def report_fraud(self, phone_number: str, description: str, reporter_ip: str) -> bool:
+        """Report a fraudulent phone number"""
+        try:
+            return self.fraud_repo.report_fraud(phone_number, description, reporter_ip)
+        except Exception as e:
+            logger.error(f"Error reporting fraud: {str(e)}")
+            return False
+    
+    def get_or_create_user(self, user_id: str, metadata: dict = None) -> Dict[str, Any]:
+        """Get or create a user"""
+        try:
+            return self.user_repo.get_or_create_user(user_id, metadata)
+        except Exception as e:
+            logger.error(f"Error managing user: {str(e)}")
+            raise 
