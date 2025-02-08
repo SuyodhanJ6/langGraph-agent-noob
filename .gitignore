@@ -31,16 +31,17 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
-
+.backup
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
+notebook
 # Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
 .coverage
+.env.docker
 .coverage.*
 .cache
 nosetests.xml
