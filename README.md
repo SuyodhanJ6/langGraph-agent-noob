@@ -2,6 +2,15 @@
 
 A smart system for detecting and reporting fraudulent phone numbers using LangChain and FastAPI.
 
+## 🤖 Agent Architecture
+![Fraud Detection Agent Architecture](media/images/fraud_detection_graph.png)
+
+Our system uses a multi-agent architecture powered by LangGraph:
+- **Supervisor Agent**: Routes user messages to specialized agents
+- **Greeter Agent**: Handles introductions and general queries
+- **Checker Agent**: Verifies phone numbers against fraud database
+- **Reporter Agent**: Processes fraud reports and updates database
+
 ## 🚀 Quick Start
 
 ### 🔧 Local Development Setup
