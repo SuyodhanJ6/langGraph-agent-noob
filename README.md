@@ -160,22 +160,4 @@ pytest
 
 MIT License - see LICENSE file for details
 
-## 🤝 Contributing
 
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Open pull request
-
-## 📞 Support
-
-- Create an issue for bugs
-- Pull requests welcome
-- Documentation improvements appreciated
-
-## 🙏 Acknowledgments
-
-- LangChain for the amazing framework
-- FastAPI for the web framework
-- Contributors and users
