@@ -5,6 +5,9 @@ A smart system for detecting and reporting fraudulent phone numbers using LangCh
 ## 🤖 Agent Architecture
 ![Fraud Detection Agent Architecture](media/images/fraud_detection_graph.png)
 
+## 📊 System Architecture
+![Phone Fraud Detection System Architecture](media/images/PhoneFraudFunctionalHLD.png)
+
 Our system uses a multi-agent architecture powered by LangGraph:
 - **Supervisor Agent**: Routes user messages to specialized agents
 - **Greeter Agent**: Handles introductions and general queries

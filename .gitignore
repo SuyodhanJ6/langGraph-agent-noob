@@ -176,4 +176,5 @@ media/*
 !media/images/
 media/images/*
 !media/images/fraud_detection_graph.png
+!media/images/PhoneFraudFunctionalHLD.png
 !media/images/.gitkeep
