@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 from dotenv import load_dotenv
 import os
+from pydantic import Field
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,11 +17,11 @@ class Settings(BaseSettings):
     # API Keys
     OPIK_API_KEY: str = os.getenv("OPIK_API_KEY", "")
     OPIK_WORKSPACE: str = os.getenv("OPIK_WORKSPACE", "suyodhanj6")
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_API_KEY: str = Field(default="")
     LANGCHAIN_API_KEY: str = os.getenv("LANGCHAIN_API_KEY", "")
     
     # Model Settings
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama3-70b-8192")
+    GROQ_MODEL: str = Field(default="llama-3.1-8b-instant")
     
     # Database Settings
     DB_HOST: str = os.getenv("DB_HOST", "localhost")

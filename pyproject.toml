@@ -1,7 +1,7 @@
 [project]
-name = "template_genai"
+name = "PhoneFraudDetection"
 version = "0.1.0"
-description = "template_genai"
+description = "PhoneFraudDetection"
 readme = "README.md"
 authors = [{ name = "Prashant Malge", email = "prashantmalge181@gmail.com" }]
 classifiers = [
@@ -19,6 +19,7 @@ dependencies = [
     "fastapi ~=0.115.5",
     "httpx ~=0.27.2",
     "langchain-core ~=0.3.33",
+    "slowapi ~=0.1.9",
     "langchain-community ~=0.3.16",
     "langchain-openai ~=0.2.9",
     "langchain-anthropic ~= 0.3.0",
@@ -40,6 +41,7 @@ dependencies = [
     "tiktoken >=0.8.0", # python 3.13 support
     "uvicorn ~=0.32.1",
     "mysql-connector-python ~=8.0.33",
+    "redis>=5.2.1",
 ]
 
 [dependency-groups]
@@ -86,3 +88,8 @@ test = [
     "pytest-env>=1.1.0",
     "httpx>=0.24.1",
 ]
+
+[tool.poetry.dependencies]
+uvicorn = "^0.29.0"
+fastapi = "^0.110.0"
+python-dotenv = "^1.0.0"

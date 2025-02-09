@@ -7,39 +7,44 @@ RUN apt-get update && apt-get install -y \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 RUN pip install --no-cache-dir uv
 
 # Copy dependency files first
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 
 # Create venv and install dependencies
 RUN uv venv && \
     . .venv/bin/activate && \
     uv pip install mysql-connector-python && \
-    uv sync --frozen
+    uv pip install --no-cache-dir -e .[dev] && \
+    uv pip install --no-cache-dir "uvicorn[standard]"
 
 # Copy application code
-COPY src/ ./src/
-COPY controller/ ./controller/
-COPY main.py .
+COPY . .
 
-# Copy and rename Docker environment file
-COPY .env.docker .env
-
-# Install the project in editable mode
+# Verify installation
 RUN . .venv/bin/activate && \
-    uv pip install -e . && \
-    uv pip install mysql-connector-python
-
-# Expose port
-EXPOSE 8000
+    python --version && \
+    python -c "import uvicorn; print(f'uvicorn version: {uvicorn.__version__}')" && \
+    ls -la .venv/bin/python
 
 # Set Python path to use venv
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 
+# Create entrypoint script
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo 'cd /app' >> /entrypoint.sh && \
+    echo 'exec python -m uvicorn main:app --host 0.0.0.0 --port 8000' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Expose port
+EXPOSE 8000
+
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/entrypoint.sh"]
